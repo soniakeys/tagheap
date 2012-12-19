@@ -1,3 +1,6 @@
+// Copyright 2012 Sonia Keys
+// License MIT: http://www.opensource.org/licenses/MIT
+
 // Tagheap provides an interface-free heap API.
 //
 // Internally, the implementation uses container/heap from the standard library
