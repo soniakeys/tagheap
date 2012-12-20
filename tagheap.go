@@ -61,7 +61,13 @@ func New(arg interface{}) (*TagHeap, error) {
 func (t TagHeap) Len() int { return tagHeap(t).Len() }
 
 // Push performs a heap push operation, pushing a struct onto the heap.
-func (t *TagHeap) Push(u interface{}) { heap.Push((*tagHeap)(t), u) }
+func (t *TagHeap) Push(u interface{}) {
+	th := (*tagHeap)(t)
+	if !reflect.TypeOf(u).AssignableTo(th.pt) {
+		panic("invalid type for push argument")
+	}
+	heap.Push(th, u)
+}
 
 // Pop performs a heap pop operation, popping the next struct in heap order
 // from the heap.
@@ -70,18 +76,25 @@ func (t *TagHeap) Pop() interface{} { return heap.Pop((*tagHeap)(t)) }
 // Remove performs a heap remove operation, removing the specified struct.
 func (t *TagHeap) Remove(u interface{}) interface{} {
 	th := (*tagHeap)(t)
+	if th.indexFieldIndex < 0 {
+		panic("remove index field not defined")
+	}
+	if !reflect.TypeOf(u).ConvertibleTo(th.pt) {
+		panic("invalid type for remove argument")
+	}
 	return heap.Remove(th,
 		int(reflect.ValueOf(u).Elem().Field(th.indexFieldIndex).Int()))
 }
 
 // unexported type implementing heap.Interface
 type tagHeap struct {
-	s               reflect.Value // slice of ptr to struct
+	s               reflect.Value // assignable slice of ptr to struct
+	pt              reflect.Type  // pointer to struct
 	minHeap         bool
 	keyFieldIndex   int
 	indexFieldIndex int
 	less            func(vi, vj reflect.Value) bool
-	swapTemp        reflect.Value
+	swapTemp        reflect.Value // assignable pointer to struct
 }
 
 // constructor
@@ -102,11 +115,11 @@ func newTagHeap(arg interface{}) (*tagHeap, error) {
 	if slct.Kind() != reflect.Slice {
 		return nil, errors.New("argument must be pointer to slice")
 	}
-	pt := slct.Elem()
-	if pt.Kind() != reflect.Ptr {
+	s.pt = slct.Elem()
+	if s.pt.Kind() != reflect.Ptr {
 		return nil, errors.New("argument must be pointer to slice of pointer")
 	}
-	st := pt.Elem()
+	st := s.pt.Elem()
 	if st.Kind() != reflect.Struct {
 		return nil, errors.New("argument must be pointer to slice of pointer to struct")
 	}
@@ -160,7 +173,7 @@ func newTagHeap(arg interface{}) (*tagHeap, error) {
 	}
 	// initialize s.s, swapTemp
 	s.s = reflect.ValueOf(arg).Elem()
-	s.swapTemp = reflect.New(pt).Elem()
+	s.swapTemp = reflect.New(s.pt).Elem()
 	heap.Init(s)
 	return s, nil
 }
