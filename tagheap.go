@@ -22,6 +22,8 @@
 // Optionally, another field may have the tag `heap:"index"`.  The tag
 // specifies that tagHeap methods should maintain this field as an index
 // that can be used by the Remove method.  The field type must be int.
+// This field can be thought of as a "cookie" that is needed by Remove but
+// should otherwise be ignored.
 package tagheap
 
 import (
@@ -45,7 +47,9 @@ type TagHeap tagHeap
 //
 // The heap is initialized to the contents of the slice and the slice
 // is used without making a copy.  The slice and its contents are modified
-// by various TagHeap methods.
+// by various TagHeap methods.  At any time, the slice represents the structs
+// on the heap and can be accessed for other purposes.  Modifying the slice
+// however, can corrupt the heap.
 //
 // If the struct type is not properly specified or the argument is otherwise
 // not usable for TagHeap, the error result explains why.
@@ -61,6 +65,9 @@ func New(arg interface{}) (*TagHeap, error) {
 func (t TagHeap) Len() int { return tagHeap(t).Len() }
 
 // Push performs a heap push operation, pushing a struct onto the heap.
+//
+// The argument u must be a pointer to struct, of the struct type supplied
+// to New.  An invalid argument type causes a panic.
 func (t *TagHeap) Push(u interface{}) {
 	th := (*tagHeap)(t)
 	if !reflect.TypeOf(u).AssignableTo(th.pt) {
@@ -71,9 +78,17 @@ func (t *TagHeap) Push(u interface{}) {
 
 // Pop performs a heap pop operation, popping the next struct in heap order
 // from the heap.
+//
+// Pop on an empty heap causes a panic.  Use Len as needed to avoid this.
+// The interface return value will contain a pointer to struct of the type
+// supplied to New.
 func (t *TagHeap) Pop() interface{} { return heap.Pop((*tagHeap)(t)) }
 
 // Remove performs a heap remove operation, removing the specified struct.
+//
+// Remove will panic if an index field is not defined.  The argument u
+// must be a pointer to struct, of the struct type supplied to New.
+// An invalid argument type causes a panic.
 func (t *TagHeap) Remove(u interface{}) interface{} {
 	th := (*tagHeap)(t)
 	if th.indexFieldIndex < 0 {
