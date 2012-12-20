@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"tagheap"
+	"github.com/soniakeys/tagheap"
 )
 
 func ExampleNew() {
