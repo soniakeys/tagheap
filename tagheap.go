@@ -10,12 +10,12 @@
 //
 // Struct tags
 //
-// In the struct type, a field with the struct key `heap:"min"` is called
-// a key field and specifies that the heap will be a min-heap based on
-// the value of this field.  The field must be < comparable, that is,
-// it must be a string, integer, or floating point type.
+// In the struct type, a field with the struct tag such as `heap:"min"`
+// is called a key field and specifies that the heap will be a min-heap
+// based on the value of this field.  The field must be < comparable,
+// that is, it must be a string, integer, or floating point type.
 //
-// The struct key `heap:"max"` similarly indicates a key field and
+// The struct tag `heap:"max"` similarly indicates a key field and
 // specifies a max-heap.  There must be exactly one key field in the struct,
 // either min or max.
 //
@@ -24,6 +24,18 @@
 // that can be used by the Remove method.  The field type must be int.
 // This field can be thought of as a "cookie" that is needed by Remove but
 // should otherwise be ignored.
+//
+// Multiple heaps
+//
+// The word "key" also refers to the key portion of the key-value syntax
+// of struct tags.  This key is specified as an argument to New.  It does
+// not have to be `heap`.  This allows a single struct to be defined with
+// tags for different heaps.
+//
+// Each heap requires a separate call to New and a separate slice argument.
+// Different tag keys allow heaps to have different ordering keys.  They
+// could also have different index fields, but there is little point in this.
+// It would make sense to use the same index field for all heaps.
 package tagheap
 
 import (
@@ -40,10 +52,13 @@ type TagHeap tagHeap
 
 // New constructs a new TagHeap object.
 //
-// For the argument, New takes a pointer to slice of pointer to struct.
+// Argument 'key' is the tag key to recognize in struct tags.
+// This must match the key on the struct tag used in the struct definition.
+//
+// Argument 'ps' must be a pointer to slice of pointer to struct.
 // The struct type is the type you wish to store in the heap.
-// It is valid to pass an empty slice, but it is not valid
-// to pass an untyped nil.
+// It is valid to pass a nil slice, but it is not valid to pass
+// a nil interface.
 //
 // The heap is initialized to the contents of the slice and the slice
 // is used without making a copy.  The slice and its contents are modified
@@ -53,8 +68,8 @@ type TagHeap tagHeap
 //
 // If the struct type is not properly specified or the argument is otherwise
 // not usable for TagHeap, the error result explains why.
-func New(arg interface{}) (*TagHeap, error) {
-	t, err := newTagHeap(arg)
+func New(key string, ps interface{}) (*TagHeap, error) {
+	t, err := newTagHeap(key, ps)
 	if err != nil {
 		return nil, err
 	}
@@ -113,8 +128,8 @@ type tagHeap struct {
 }
 
 // constructor
-func newTagHeap(arg interface{}) (*tagHeap, error) {
-	at := reflect.TypeOf(arg)
+func newTagHeap(key string, ps interface{}) (*tagHeap, error) {
+	at := reflect.TypeOf(ps)
 	if at == nil {
 		return nil, errors.New("argument cannot be untyped nil")
 	}
@@ -141,7 +156,7 @@ func newTagHeap(arg interface{}) (*tagHeap, error) {
 	// find and validate struct tags
 	for i, n := 0, st.NumField(); i < n; i++ {
 		sf := st.Field(i)
-		switch tv := sf.Tag.Get("heap"); tv {
+		switch tv := sf.Tag.Get(key); tv {
 		case "":
 			continue
 		case "min", "max":
@@ -187,7 +202,7 @@ func newTagHeap(arg interface{}) (*tagHeap, error) {
 		return nil, errors.New("struct must indicate key field")
 	}
 	// initialize s.s, swapTemp
-	s.s = reflect.ValueOf(arg).Elem()
+	s.s = reflect.ValueOf(ps).Elem()
 	s.swapTemp = reflect.New(s.pt).Elem()
 	heap.Init(s)
 	return s, nil
